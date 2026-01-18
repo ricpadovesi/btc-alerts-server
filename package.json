@@ -5,9 +5,8 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild _core/index.ts --platform=node --bundle --format=esm --external:ws --external:mysql2 --external:drizzle-orm --external:firebase-admin --outdir=dist",
-    "start": "node dist/index.js",
-    "postinstall": "npm run build",
+    "build": "bash build.sh",
+    "start": "NODE_PATH=./node_modules node dist/index.js",
     "dev": "tsx watch _core/index.ts"
   },
   "dependencies": {

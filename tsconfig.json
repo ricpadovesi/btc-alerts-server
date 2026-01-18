@@ -7,9 +7,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
     "outDir": "./dist",
     "rootDir": ".",
-    "declaration": true,
+    "declaration": false,
     "types": ["node"]
   },
   "include": [
