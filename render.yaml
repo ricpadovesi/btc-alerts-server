@@ -1,9 +1,9 @@
 services:
   - type: web
     name: btc-alerts-server
-    env: node
-    buildCommand: npm install && npm run build && cd dist && npm install --production
-    startCommand: npm start
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: NODE_ENV
         value: production
