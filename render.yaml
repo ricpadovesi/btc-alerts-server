@@ -3,7 +3,7 @@ services:
     name: btc-alerts-server
     env: node
     buildCommand: npm install && npm run build && cd dist && npm install --production
-    startCommand: cd dist && NODE_PATH=./node_modules node index.js
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
