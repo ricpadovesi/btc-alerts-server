@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "echo 'No build needed - using tsx runtime'",
     "dev": "tsx watch _core/index.ts",
     "start": "tsx _core/index.ts"
   },
