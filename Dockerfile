@@ -12,25 +12,23 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application (build.sh creates dist/ with package.json)
 RUN npm run build
+
+# Install production dependencies INSIDE dist/
+WORKDIR /app/dist
+RUN npm install --production
 
 # Production stage
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install ONLY production dependencies
-RUN npm install --production
-
-# Copy built application from builder
-COPY --from=builder /app/dist ./dist
+# Copy the complete dist directory with node_modules from builder
+COPY --from=builder /app/dist ./
 
 # Expose port
 EXPOSE 3000
 
 # Start the application
-CMD ["node", "dist/index.js"]
+CMD ["node", "index.js"]
