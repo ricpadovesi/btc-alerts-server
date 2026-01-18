@@ -7,7 +7,7 @@
  */
 
 import { getDb } from "./db";
-import { pushTokens } from "../drizzle/schema";
+import { pushTokens } from "./drizzle/schema.js";
 import { eq } from "drizzle-orm";
 import * as fcm from "./firebase-fcm";
 
