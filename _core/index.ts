@@ -7,7 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serverTradingBot } from "../trading-bot";
-import { registerPushToken, sendTestPush } from "../push-notifications-memory";
+import { registerPushToken, sendTestPush, initPushService, getAllPushTokens } from "../push-notifications";
 import { initializeDatabase } from "../init-db.js";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -96,7 +96,6 @@ async function startServer() {
   // Endpoint para listar tokens registrados
   app.get("/api/tokens", async (_req, res) => {
     try {
-      const { getAllPushTokens } = await import("../push-notifications-memory");
       const tokens = await getAllPushTokens();
       res.json({ success: true, count: tokens.length, tokens });
     } catch (error: any) {
@@ -129,8 +128,12 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
-  server.listen(port, () => {
+  server.listen(port, async () => {
     console.log(`[api] server listening on port ${port}`);
+    
+    // Inicializar serviço de push notifications
+    console.log('[api] Inicializando serviço de push notifications...');
+    await initPushService();
     
     // Iniciar o robô de trading após servidor estar pronto
     console.log('[api] Iniciando robô de trading em segundo plano...');
