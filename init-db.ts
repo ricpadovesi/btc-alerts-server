@@ -1,9 +1,14 @@
-import { db } from "./db.js";
+import { getDb } from "./db.js";
 import { sql } from "drizzle-orm";
 
 export async function initializeDatabase() {
   try {
     console.log("[DB] Inicializando banco de dados...");
+
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database connection not available");
+    }
 
     // Criar tabela users
     await db.execute(sql`
