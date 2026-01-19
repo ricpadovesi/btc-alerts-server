@@ -12,7 +12,7 @@ import * as fcm from "./firebase-fcm";
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
 // Flag para usar FCM ao invés de Expo Push API
-const USE_FCM = true;
+const USE_FCM = false;
 
 // Armazenamento em memória dos tokens
 const pushTokensMemory = new Map<string, {
