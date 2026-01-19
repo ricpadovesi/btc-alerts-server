@@ -10,7 +10,7 @@
 import { serverPriceMonitor } from './price-monitor';
 import { serverSignalDetector } from './signal-detector';
 import { serverBinanceExecutor } from './binance-executor';
-import { sendPushToAll, getAllPushTokens } from './push-notifications';
+import { sendPushToAll, getAllPushTokens } from './push-notifications-memory';
 import { getDb } from './db';
 
 interface BotConfig {

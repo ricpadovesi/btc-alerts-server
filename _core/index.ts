@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serverTradingBot } from "../trading-bot";
+import { registerPushToken, sendTestPush } from "../push-notifications-memory";
 import { initializeDatabase } from "../init-db.js";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -66,6 +67,37 @@ async function startServer() {
     try {
       await initializeDatabase();
       res.json({ success: true, message: "Database initialized successfully" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Endpoint para registrar token de push
+  app.post("/api/register-token", async (req, res) => {
+    try {
+      const { token, deviceId } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ success: false, error: "Token is required" });
+      }
+
+      const success = await registerPushToken(token, deviceId);
+      
+      if (success) {
+        res.json({ success: true, message: "Token registered successfully" });
+      } else {
+        res.status(500).json({ success: false, error: "Failed to register token" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Endpoint para testar notificações push
+  app.post("/api/test-push", async (_req, res) => {
+    try {
+      const result = await sendTestPush();
+      res.json({ success: true, result });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }

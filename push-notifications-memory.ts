@@ -1,0 +1,292 @@
+/**
+ * Push Notifications Service (In-Memory Version)
+ * 
+ * Versão simplificada que armazena tokens em memória.
+ * Ideal para testes e MVP sem banco de dados.
+ * 
+ * ATENÇÃO: Tokens são perdidos quando o servidor reinicia!
+ */
+
+import * as fcm from "./firebase-fcm";
+
+const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+
+// Flag para usar FCM ao invés de Expo Push API
+const USE_FCM = true;
+
+// Armazenamento em memória dos tokens
+const pushTokensMemory = new Map<string, {
+  token: string;
+  deviceId?: string;
+  createdAt: Date;
+  lastUsed: Date;
+}>();
+
+export interface PushMessage {
+  title: string;
+  body: string;
+  data?: Record<string, any>;
+  sound?: "default" | null;
+  badge?: number;
+  channelId?: string;
+  priority?: "default" | "normal" | "high";
+}
+
+/**
+ * Registra um Push Token em memória
+ */
+export async function registerPushToken(token: string, deviceId?: string): Promise<boolean> {
+  try {
+    console.log('[Push] [REGISTER] ========================================');
+    console.log('[Push] [REGISTER] REGISTRANDO TOKEN NO SERVIDOR (MEMÓRIA)');
+    console.log('[Push] [REGISTER] ========================================');
+    console.log(`[Push] [REGISTER] Token: ${token}`);
+    console.log(`[Push] [REGISTER] DeviceId: ${deviceId || 'não fornecido'}`);
+    
+    const existing = pushTokensMemory.get(token);
+    
+    if (existing) {
+      console.log('[Push] [REGISTER] Token já existe, atualizando lastUsed...');
+      existing.lastUsed = new Date();
+      pushTokensMemory.set(token, existing);
+      console.log('[Push] [REGISTER] ✅ Token atualizado com sucesso');
+    } else {
+      console.log('[Push] [REGISTER] Inserindo novo token em memória...');
+      pushTokensMemory.set(token, {
+        token,
+        deviceId,
+        createdAt: new Date(),
+        lastUsed: new Date(),
+      });
+      console.log('[Push] [REGISTER] ✅ NOVO TOKEN REGISTRADO COM SUCESSO!');
+    }
+    
+    console.log(`[Push] [REGISTER] Total de tokens registrados: ${pushTokensMemory.size}`);
+    console.log('[Push] [REGISTER] ========================================');
+    return true;
+  } catch (error) {
+    console.error('[Push] [REGISTER] ❌ ERRO ao registrar token:', error);
+    console.log('[Push] [REGISTER] ========================================');
+    return false;
+  }
+}
+
+/**
+ * Remove um Push Token da memória
+ */
+export async function unregisterPushToken(token: string): Promise<boolean> {
+  try {
+    const deleted = pushTokensMemory.delete(token);
+    if (deleted) {
+      console.log("[Push] Token removido:", token.substring(0, 30) + "...");
+    }
+    return deleted;
+  } catch (error) {
+    console.error("[Push] Erro ao remover token:", error);
+    return false;
+  }
+}
+
+/**
+ * Obtém todos os tokens registrados
+ */
+export async function getAllPushTokens(): Promise<string[]> {
+  return Array.from(pushTokensMemory.values()).map(t => t.token);
+}
+
+/**
+ * Envia notificação push para todos os dispositivos registrados
+ */
+export async function sendPushToAll(titleOrMessage: string | PushMessage, body?: string): Promise<{
+  success: boolean;
+  sent: number;
+  failed: number;
+  errors: string[];
+}> {
+  console.log('[Push] [SEND] ========================================');
+  console.log('[Push] [SEND] ENVIANDO NOTIFICACAO PUSH');
+  console.log('[Push] [SEND] ========================================');
+  
+  // Normalizar para PushMessage
+  const message: PushMessage = typeof titleOrMessage === 'string'
+    ? { title: titleOrMessage, body: body || '' }
+    : titleOrMessage;
+
+  console.log(`[Push] [SEND] Título: ${message.title}`);
+  console.log(`[Push] [SEND] Corpo: ${message.body}`);
+
+  const tokens = await getAllPushTokens();
+  
+  if (tokens.length === 0) {
+    console.error('[Push] [SEND] ❌ NENHUM DISPOSITIVO REGISTRADO!');
+    console.log('[Push] [SEND] ========================================');
+    return { success: true, sent: 0, failed: 0, errors: [] };
+  }
+
+  console.log(`[Push] [SEND] ✅ Enviando para ${tokens.length} dispositivo(s)...`);
+  console.log(`[Push] [SEND] Usando: ${USE_FCM ? 'Firebase Cloud Messaging (FCM)' : 'Expo Push API'}`);
+
+  // Se usar FCM, enviar via Firebase
+  if (USE_FCM) {
+    try {
+      // Converter data para Record<string, string> (FCM requer strings)
+      const fcmData: Record<string, string> = {};
+      if (message.data) {
+        Object.entries(message.data).forEach(([key, value]) => {
+          fcmData[key] = typeof value === 'string' ? value : JSON.stringify(value);
+        });
+      }
+
+      const result = await fcm.sendToMultipleTokens(tokens, {
+        title: message.title,
+        body: message.body,
+        data: fcmData,
+      });
+
+      console.log('[Push] [SEND] ========================================');
+      console.log(`[Push] [SEND] ✅ RESULTADO FCM: ${result.success} enviados, ${result.failed} falhas`);
+      console.log('[Push] [SEND] ========================================');
+
+      return {
+        success: result.failed === 0,
+        sent: result.success,
+        failed: result.failed,
+        errors: result.errors,
+      };
+    } catch (error) {
+      console.error('[Push] [SEND] ❌ ERRO FCM:', error);
+      console.log('[Push] [SEND] ========================================');
+      return {
+        success: false,
+        sent: 0,
+        failed: tokens.length,
+        errors: [error instanceof Error ? error.message : 'FCM Error'],
+      };
+    }
+  }
+
+  // Fallback: Expo Push API
+  const messages = tokens.map((token) => ({
+    to: token,
+    title: message.title,
+    body: message.body,
+    data: message.data || {},
+    sound: message.sound || "default",
+    badge: message.badge,
+    channelId: message.channelId || "default",
+    priority: message.priority || "high",
+  }));
+
+  try {
+    const results: { success: boolean; error?: string }[] = [];
+    
+    for (let i = 0; i < messages.length; i += 100) {
+      const batch = messages.slice(i, i + 100);
+      
+      console.log(`[Push] [SEND] Enviando lote ${Math.floor(i / 100) + 1}/${Math.ceil(messages.length / 100)}...`);
+      
+      const response = await fetch(EXPO_PUSH_URL, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(batch),
+      });
+
+      console.log(`[Push] [SEND] Status da resposta: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Push] [SEND] ❌ ERRO na API Expo: ${errorText}`);
+        results.push(...batch.map(() => ({ success: false, error: errorText })));
+        continue;
+      }
+
+      const data = await response.json();
+      
+      if (data.data) {
+        for (const ticket of data.data) {
+          if (ticket.status === "ok") {
+            results.push({ success: true });
+          } else {
+            results.push({ success: false, error: ticket.message || "Unknown error" });
+            
+            if (ticket.details?.error === "DeviceNotRegistered") {
+              const tokenIndex = results.length - 1;
+              if (tokenIndex < tokens.length) {
+                await unregisterPushToken(tokens[tokenIndex]);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const sent = results.filter((r) => r.success).length;
+    const failed = results.filter((r) => !r.success).length;
+    const errors = results.filter((r) => r.error).map((r) => r.error!);
+
+    console.log('[Push] [SEND] ========================================');
+    console.log(`[Push] [SEND] ✅ RESULTADO: ${sent} enviados, ${failed} falhas`);
+    console.log('[Push] [SEND] ========================================');
+    
+    return {
+      success: failed === 0,
+      sent,
+      failed,
+      errors: [...new Set(errors)],
+    };
+  } catch (error) {
+    console.error('[Push] [SEND] ❌ ERRO ao enviar notificações:', error);
+    console.log('[Push] [SEND] ========================================');
+    return {
+      success: false,
+      sent: 0,
+      failed: tokens.length,
+      errors: [error instanceof Error ? error.message : "Unknown error"],
+    };
+  }
+}
+
+/**
+ * Envia notificação de sinal detectado
+ */
+export async function sendSignalPush(signal: {
+  system: string;
+  type: "LONG" | "SHORT";
+  entryPrice: number;
+  score: number;
+  stopLoss?: number;
+  takeProfit?: number;
+}) {
+  const emoji = signal.type === "LONG" ? "🟢" : "🔴";
+  const action = signal.type === "LONG" ? "COMPRA" : "VENDA";
+
+  return sendPushToAll({
+    title: `${emoji} Sinal ${action} Detectado!`,
+    body: `${signal.system} - Score: ${signal.score}/100\nPreço: $${signal.entryPrice.toFixed(2)}`,
+    data: {
+      type: "signal",
+      signal: JSON.stringify(signal),
+    },
+    priority: "high",
+    channelId: "signals",
+  });
+}
+
+/**
+ * Envia notificação de teste
+ */
+export async function sendTestPush() {
+  return sendPushToAll({
+    title: "🔔 Teste de Notificação",
+    body: "Se você está vendo isso, as notificações push estão funcionando!",
+    data: {
+      type: "test",
+      timestamp: new Date().toISOString(),
+    },
+    priority: "high",
+  });
+}
