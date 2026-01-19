@@ -317,3 +317,53 @@ export async function sendTestPush() {
     priority: "high",
   });
 }
+
+/**
+ * Envia notificação de ordem aberta
+ */
+export async function sendOrderOpenedPush(order: {
+  type: "LONG" | "SHORT";
+  entryPrice: number;
+  amount: number;
+  stopLoss?: number;
+  takeProfit?: number;
+}) {
+  const emoji = order.type === "LONG" ? "🟢" : "🔴";
+  const action = order.type === "LONG" ? "COMPRA" : "VENDA";
+
+  return sendPushToAll({
+    title: `${emoji} Ordem ${action} Aberta!`,
+    body: `Preço: $${order.entryPrice.toFixed(2)}\nQuantidade: ${order.amount} BTC`,
+    data: {
+      type: "order_opened",
+      order: JSON.stringify(order),
+    },
+    priority: "high",
+    channelId: "orders",
+  });
+}
+
+/**
+ * Envia notificação de ordem fechada
+ */
+export async function sendOrderClosedPush(order: {
+  type: "LONG" | "SHORT";
+  entryPrice: number;
+  exitPrice: number;
+  profit: number;
+  profitPercent: number;
+}) {
+  const emoji = order.profit >= 0 ? "✅" : "❌";
+  const profitText = order.profit >= 0 ? "Lucro" : "Prejuízo";
+
+  return sendPushToAll({
+    title: `${emoji} Ordem Fechada - ${profitText}`,
+    body: `${profitText}: $${Math.abs(order.profit).toFixed(2)} (${order.profitPercent.toFixed(2)}%)\nPreço: $${order.exitPrice.toFixed(2)}`,
+    data: {
+      type: "order_closed",
+      order: JSON.stringify(order),
+    },
+    priority: "high",
+    channelId: "orders",
+  });
+}
