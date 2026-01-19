@@ -93,6 +93,17 @@ async function startServer() {
     }
   });
 
+  // Endpoint para listar tokens registrados
+  app.get("/api/tokens", async (_req, res) => {
+    try {
+      const { getAllPushTokens } = await import("../push-notifications-memory");
+      const tokens = await getAllPushTokens();
+      res.json({ success: true, count: tokens.length, tokens });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Endpoint para testar notificações push
   app.post("/api/test-push", async (_req, res) => {
     try {
