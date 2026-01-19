@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serverTradingBot } from "../trading-bot";
+import { initializeDatabase } from "../init-db.js";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -59,6 +60,15 @@ async function startServer() {
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });
+  });
+
+  app.post("/api/init-db", async (_req, res) => {
+    try {
+      await initializeDatabase();
+      res.json({ success: true, message: "Database initialized successfully" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   app.use(
